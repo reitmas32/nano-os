@@ -1,0 +1,123 @@
+Necesitamos: Virtualbox, Qemu o PC X86,LINUX, NASM, GCC, LD, GRUB
+Abrimos la terminal
+Abrimos explorador de archivos
+
+Instalar NASM: sudo apt-get install nasm build-essential
+instalar xorriso (grub): sudo apt-get install xorriso
+instalar virtualbox: sudo apt-get install virtualbox
+instalar Qemu (opcional): sudo apt install qemu-system-x86
+
+Instalar VIM (opcional): sudo apt install vim
+Instalar atom (opcional): snap install atom --classic
+
+Abrimos Virtualbox
+
+Crear carpeta proyecto1 (consola o ventana)
+creamos archivos con: touch (consola)
+	kasm.asm
+	kc.c
+	link.ld
+	grub.cfg
+
+TEXTO DE ARCHIVOS---------------------------------------
+
+Archivo kasm.asm ---------------------------------------
+;;kasm.asm
+bits 32		;directiva nasm
+section .text
+	;Especificacion multiboot para que GRUB cargue el kernel
+	align 4
+	dd 0x1BADB002			;Campo magico que identifica la cabecera
+	dd 0x00			;Campo flags en cero
+	dd - (0x1BADB002 + 0x00)	;Campo checksum. m+f+c deben ser cero
+
+global start
+
+extern kmain				;La funcion kmain() esta definida en el archivo boot.c
+
+start:
+	cli				;block interrupts
+	call kmain			;llama a kmain
+	hlt				;detiene el CPU
+	
+section .bss
+stack_space: resb 8192			; Pila de 8KB
+
+
+
+
+Archivo kc.c------------------------------------
+/*
+* kc.c
+*/
+void kmain(void) {
+	const char *str = "Bienvenidos a Gandhy OS";
+	char *vidptr = (char*)0xb8000; 	//La memoria de video inicia aqui.
+	unsigned int i = 0;
+	unsigned int j = 0;
+
+	/* Este bucle limpia la pantalla
+	* Hay 25 lineas de 80 columnas; cada elemento ocupa 2 bytes*/
+	while(j < 80 * 25 * 2) {
+		/* Caracter espacio */
+		vidptr[j] = ' ';
+		/* byte de atributo - gris claro sobre pantalla negra */
+		vidptr[j+1] = 0x07; 		
+		j = j + 2;
+	}
+
+	j = 0;
+
+	/* Este bucle escribe nuestro texto en la memoria de video */
+	while(str[j] != '\0') {
+		/* caracter ascii */
+		vidptr[i] = str[j];
+		/* byte de atributo - escribe caracter gris claro sobre fondo negro */
+		vidptr[i+1] = 0x07;
+		++j;
+		i = i + 2;
+	}
+	return;
+}
+
+Archivo link.ld-----------------------
+/*
+* link.ld
+*/
+OUTPUT_FORMAT(elf32-i386)
+ENTRY(start)
+SECTIONS {
+. = 0x100000;
+.text : { *(.text) }
+.data : { *(.data) }
+.bss : { *(.bss) }
+}
+
+
+Archivo grub.cfg-----------
+menuentry "Gandhy OS kernel" {
+	multiboot /boot/kernel
+	boot
+}
+menuentry "Reiniciar sistema" {
+	echo "Reiniciando el sistema..."
+	reboot
+}
+menuentry "Apagar sistema" {
+	echo "Apagando el sistema..."
+	halt
+}
+
+Creamos archivos objeto kasm.o y kc.o	
+	nasm -f elf32 kasm.asm -o kasm.o	(crea el archivo objeto kasm.o en formato ELF DE 32 BITS)
+	gcc -m32 -c kc.c -o kc.o		(crea el archivo objeto kc.o, la opcion -c es para que no linkee)
+	
+Linkeamos: ld -m elf_i386 -T link.ld -o kernel kasm.o kc.o
+
+Creamos carpeta iso, dentro creamos carpeta boot y dentro creamos carpeta grub
+Ponemos archivo kernel en carpeta boot y archivo grub.cfg en carpeta grub
+Creamos archivo iso desde terminal: grub-mkrescue -o gandhyOS.iso iso
+Creamos sistema operativo virtual en virtualbox tipo other y DOS
+Cargamos imagen de disco .iso en Virtualbox e iniciamos.
+
+No es necesario crear disco duro virtual
