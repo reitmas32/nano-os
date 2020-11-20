@@ -2,7 +2,7 @@
 * kc.c
 */
 void kmain(void) {
-	const char *str = "Bienvenidos a Gandhy OS";
+	const char *str = "Bienvenidos a Nano OS";
 	char *vidptr = (char*)0xb8000; 	//La memoria de video inicia aqui.
 	unsigned int i = 0;
 	unsigned int j = 0;
